@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: social_campaign_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: socialcampaign
+      POSTGRES_PASSWORD: socialcampaignpass
+      POSTGRES_DB: social_campaign_db
+    ports:
+      - "5343:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d social_campaign_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: social_campaign_redis
+    restart: always
+    ports:
+      - "6378:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
