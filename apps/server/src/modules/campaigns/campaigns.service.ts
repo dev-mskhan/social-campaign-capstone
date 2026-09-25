@@ -5,6 +5,7 @@ import { CreateCampaignRequest, CampaignResponse, SocialPostResponse } from '../
 import { PlatformId } from '../../domain/platforms/specifications';
 import { imagePipelineService } from '../content/image-pipeline.service';
 import { captionComposerService } from '../content/caption-composer.service';
+import { enqueuePublishJob } from '../../infrastructure/queue/publishing-queue';
 import { logger } from '../../infrastructure/logger';
 import { AppError } from '../../shared/errors/app-error';
 
@@ -97,6 +98,14 @@ export class CampaignsService {
           { postId: postRecord.id, campaignId: campaignRecord.id, platform, idempotencyKey },
           'Created platform social post entry'
         );
+
+        // Enqueue durable BullMQ publishing job (handles immediate & delayed scheduled execution)
+        await enqueuePublishJob({
+          postId: postRecord.id,
+          campaignId: campaignRecord.id,
+          platform,
+          scheduledAt: scheduledAtDate,
+        });
       }
     }
 

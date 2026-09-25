@@ -9,6 +9,8 @@ import swaggerPlugin from './plugins/swagger';
 import errorHandlerPlugin from './plugins/error-handler';
 import { healthRoutes } from './routes/health.routes';
 import { campaignsRoutes } from './routes/campaigns.routes';
+import { publishingRoutes } from './routes/publishing.routes';
+import { webhookRoutes } from './routes/webhook.routes';
 
 export function buildApp(options: FastifyServerOptions = {}): FastifyInstance {
   const app = Fastify({
@@ -34,9 +36,26 @@ export function buildApp(options: FastifyServerOptions = {}): FastifyInstance {
   // 3. Register Swagger documentation
   app.register(swaggerPlugin);
 
+  // Fastify preParsing hook for capturing exact raw request body bytes for webhook HMAC verification
+  app.addHook('preParsing', async (request, _reply, payload) => {
+    if (request.url.includes('/webhooks')) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of payload) {
+        chunks.push(chunk);
+      }
+      const rawBuffer = Buffer.concat(chunks);
+      (request as any).rawBody = rawBuffer.toString('utf8');
+      const { Readable } = await import('node:stream');
+      return Readable.from(rawBuffer);
+    }
+    return payload;
+  });
+
   // 4. Register Routes under API Prefix (e.g., /api/v1)
   app.register(healthRoutes, { prefix: config.server.apiPrefix });
   app.register(campaignsRoutes, { prefix: config.server.apiPrefix });
+  app.register(publishingRoutes, { prefix: config.server.apiPrefix });
+  app.register(webhookRoutes, { prefix: config.server.apiPrefix });
 
   // 5. Register root level health check aliases for standard probes
   app.register(healthRoutes);

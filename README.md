@@ -222,3 +222,43 @@ Expected output:
 - [x] Swagger UI served at `/docs` and OpenAPI JSON served at `/docs/json`
 - [x] All 10 automated Vitest integration & infrastructure tests pass
 - [x] pnpm monorepo setup (`apps/server`, `apps/web`, `packages/`) with independent `.env` files
+
+---
+
+## 10. Phase 4 — Production Reliability
+
+Phase 4 delivers end-to-end production reliability, durable scheduling, worker crash recovery, HMAC signature-verified delivery webhooks, and status trust enforcement:
+
+### 10.1 Key Architecture Principles
+1. **Durable BullMQ Scheduler**:
+   - `enqueuePublishJob` calculates delay from `scheduledAt` for future campaigns.
+   - Deterministic job IDs (`job_${postId}`) prevent duplicate job scheduling.
+2. **Worker Crash Recovery**:
+   - BullMQ worker consumes jobs, reads current DB state (source of truth), and invokes `PublishingService.publishPost()`.
+   - Deterministic idempotency key (`post_<campaignId>_<platform>`) prevents duplicate external publication if worker restarts or crashes.
+3. **Signed Delivery Webhook**:
+   - `POST /api/v1/webhooks/social-delivery` receives signed delivery events from the fake social platform.
+   - HMAC SHA-256 signature verification (`x-social-signature`) executed using constant-time comparison (`timingSafeEqual`).
+   - Forged, missing, or tampered signatures are rejected with `HTTP 400 Bad Request` without mutating database status.
+4. **Status Trust Enforcement**:
+   - Publishing API acceptance sets post status to `publishing` and records `externalPostId`.
+   - Final status `published` is set **ONLY** when a signature-verified delivery webhook is processed.
+
+---
+
+## 11. Test Verification Matrix
+
+Run full test suite:
+```bash
+pnpm --filter server test
+```
+
+Test suite output (58/58 passing):
+- `queue-worker.test.ts`: Delayed jobs, worker recovery, restart durability.
+- `webhooks-api.test.ts`: HMAC signatures, missing headers, forged secret rejection, tampered payload rejection, idempotency.
+- `status-trust.test.ts`: Status trust rule enforcement (`publishing` → `published`).
+- `webhook-signature.test.ts`: Unit tests for HMAC SHA-256 calculation & constant-time comparison.
+- `token-encryption.test.ts`: AES-256-GCM token encryption.
+- `publishers.test.ts` & `idempotent-publishing.test.ts`: Adapter registry and 429 Retry-After rate-limit backoff.
+- `campaigns.test.ts`, `image-pipeline.test.ts`, `caption-composer.test.ts`, `domain.test.ts`, `health.test.ts`, `infrastructure.test.ts`, `error-handler.test.ts`, `swagger.test.ts`.
+

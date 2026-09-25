@@ -19,6 +19,13 @@ export const config = {
   logger: {
     level: env.LOG_LEVEL,
   },
+  security: {
+    encryptionKey: env.TOKEN_ENCRYPTION_KEY,
+    webhookSecret: env.SOCIAL_WEBHOOK_SECRET,
+  },
+  fakePlatform: {
+    baseUrl: env.FAKE_PLATFORM_BASE_URL,
+  },
 } as const;
 
 export type Config = typeof config;

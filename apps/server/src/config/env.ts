@@ -13,6 +13,11 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   API_PREFIX: z.string().default('/api/v1'),
+  TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .default('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'),
+  FAKE_PLATFORM_BASE_URL: z.string().default('http://localhost:4000'),
+  SOCIAL_WEBHOOK_SECRET: z.string().default('fake_webhook_signing_secret_key_12345'),
 });
 
 export type Env = z.infer<typeof envSchema>;
