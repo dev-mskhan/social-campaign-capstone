@@ -9,12 +9,12 @@ pnpm --filter server test
 ```
 
 Verification Result:
-```text
+ ```text
  ✓ tests/status-trust.test.ts (3 tests)
  ✓ tests/webhooks-api.test.ts (6 tests)
  ✓ tests/webhook-signature.test.ts (6 tests)
  ✓ tests/queue-worker.test.ts (4 tests)
- ✓ tests/campaigns.test.ts (5 tests)
+ ✓ tests/campaigns.test.ts (8 tests)
  ✓ tests/idempotent-publishing.test.ts (2 tests)
  ✓ tests/image-pipeline.test.ts (2 tests)
  ✓ tests/caption-composer.test.ts (3 tests)
@@ -28,7 +28,7 @@ Verification Result:
  ✓ tests/domain.test.ts (9 tests)
 
  Test Files  16 passed (16)
-      Tests  58 passed (58)
+      Tests  61 passed (61)
 ```
 
 ### 1.2 TypeScript Compilation Check
@@ -84,3 +84,17 @@ HTTP 400 Bad Request — { "error": { "code": "INVALID_SIGNATURE", "message": "I
   1. API publish acceptance sets status to `publishing` and records `externalPostId` with `publishedAt: null`.
   2. Forged delivery webhook returns HTTP 400 and post status remains `publishing`.
   3. Valid HMAC-signed delivery webhook moves post status from `publishing` to `published` and populates `publishedAt`.
+
+---
+
+## 3. Evaluator Acceptance Probe Verification Summary
+
+| Probe | Evaluator Probe | Status | Proof / Evidence |
+| :--- | :--- | :--- | :--- |
+| **Probe 1** | Duplicate publish (Idempotency Hammer) | **PASS** | `tests/idempotent-publishing.test.ts` & `tests/publishing-api.test.ts` — Repeated calls with same `idempotencyKey` return identical `externalPostId` without duplicate posts. |
+| **Probe 2** | 429 Rate Limit Handling | **PASS** | `tests/idempotent-publishing.test.ts` — Catches status 429, respects `Retry-After: 2`, and executes bounded backoff retry. |
+| **Probe 3** | Worker Crash Recovery | **PASS** | `tests/queue-worker.test.ts` — Worker 1 killed mid-queue, Worker 2 picks up job from Redis, queries DB, reuses idempotency key with 0 duplicates. |
+| **Probe 4** | Webhook Trust & Forged Webhook | **PASS** | `tests/webhooks-api.test.ts` & `tests/status-trust.test.ts` — Forged signature returns HTTP 400 with status unchanged; valid HMAC signature returns HTTP 200 and updates status to `published`. |
+| **Probe 5** | Content Artifact Specs | **PASS** | `tests/image-pipeline.test.ts` & `tests/caption-composer.test.ts` — Instagram image `1080x1080` (1:1), X image `1600x900` (16:9), platform captions differ. |
+| **Probe 6** | Token Security | **PASS** | `tests/token-encryption.test.ts` & Repository Audit — AES-256-GCM encrypted tokens in DB (`authTag:ciphertext`), zero secrets in Pino logs. |
+

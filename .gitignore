@@ -4,9 +4,11 @@ dist/
 .env.local
 *.log
 coverage/
+uploads/
 .drizzle/
 tasks.md
 tasks-phase1.md
 tasks-phase2.md
 tasks-phase3.md
 tasks-phase4.md
+tasks-phase5.md

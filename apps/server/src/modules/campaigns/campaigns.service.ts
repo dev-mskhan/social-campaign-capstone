@@ -25,6 +25,14 @@ export class CampaignsService {
     }
 
     const scheduledAtDate = input.scheduledAt ? new Date(input.scheduledAt) : null;
+    if (scheduledAtDate) {
+      if (isNaN(scheduledAtDate.getTime())) {
+        throw new AppError('scheduledAt must be a valid ISO 8601 date string', 400, 'INVALID_INPUT');
+      }
+      if (scheduledAtDate.getTime() <= Date.now()) {
+        throw new AppError('scheduledAt must be a date in the future', 400, 'INVALID_INPUT');
+      }
+    }
 
     // 1. Insert Campaign Record
     const insertedCampaigns = await db

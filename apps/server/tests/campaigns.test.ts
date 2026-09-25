@@ -76,6 +76,63 @@ describe('Campaigns & Social Posts API Integration Tests', () => {
     expect(body).toHaveLength(2);
   });
 
+  it('POST /api/v1/campaigns should create a scheduled campaign with future scheduledAt', async () => {
+    const futureDate = new Date(Date.now() + 120000).toISOString(); // 2 minutes in future
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/campaigns',
+      payload: {
+        title: 'Future Scheduled Campaign',
+        body: 'Testing scheduledAt delay in BullMQ queue.',
+        platforms: ['instagram'],
+        scheduledAt: futureDate,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const body = JSON.parse(response.body);
+
+    expect(body.status).toBe('scheduled');
+    expect(body.scheduledAt).toBe(futureDate);
+    expect(body.posts[0].scheduledAt).toBe(futureDate);
+  });
+
+  it('POST /api/v1/campaigns should return 400 for past scheduledAt date', async () => {
+    const pastDate = new Date(Date.now() - 60000).toISOString(); // 1 minute in past
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/campaigns',
+      payload: {
+        title: 'Past Scheduled Campaign',
+        body: 'Testing rejection of past scheduledAt.',
+        platforms: ['instagram'],
+        scheduledAt: pastDate,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.error.code).toBe('INVALID_INPUT');
+    expect(body.error.message).toContain('future');
+  });
+
+  it('POST /api/v1/campaigns should return 400 for invalid scheduledAt string', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/campaigns',
+      payload: {
+        title: 'Invalid Date Campaign',
+        body: 'Testing rejection of invalid scheduledAt.',
+        platforms: ['x'],
+        scheduledAt: 'not-a-valid-date',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.error.code).toBe('INVALID_INPUT');
+  });
+
   it('POST /api/v1/campaigns should return 400 for missing required body fields', async () => {
     const response = await app.inject({
       method: 'POST',

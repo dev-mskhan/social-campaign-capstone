@@ -4,7 +4,7 @@
 
 The **Multi-Platform Social Campaign Publisher** is a high-reliability backend system designed to publish, schedule, and track multi-platform social media campaigns (Instagram, X, etc.) across diverse media formats and accounts.
 
-This repository is structured as a **pnpm workspace monorepo** separating the API server (`apps/server`) and frontend web interface (`apps/web`).
+This repository is structured as a **pnpm workspace monorepo** housing the Fastify API server application (`apps/server`).
 
 ---
 
@@ -28,34 +28,29 @@ This repository is structured as a **pnpm workspace monorepo** separating the AP
 ```text
 social-campaign/
 ├── apps/
-│   ├── server/                   # Fastify backend application
-│   │   ├── .env                  # Server environment variables
-│   │   ├── .env.example          # Server environment template
-│   │   ├── drizzle.config.ts     # Drizzle Kit configuration
-│   │   ├── vitest.config.ts      # Vitest test runner configuration
-│   │   ├── src/
-│   │   │   ├── app/              # Fastify application factory & plugins
-│   │   │   │   ├── app.ts        # App factory (buildApp)
-│   │   │   │   ├── plugins/      # Error handler, Swagger, Logger
-│   │   │   │   └── routes/       # Route schemas & handlers (/health, /health/ready)
-│   │   │   ├── config/           # Centralized Zod env validation & config
-│   │   │   ├── db/               # Drizzle client, migrations, schemas
-│   │   │   ├── infrastructure/   # Redis client, BullMQ test queue, Pino logger
-│   │   │   ├── modules/          # Domain services (Health Service)
-│   │   │   ├── shared/           # Error classes, types, utils
-│   │   │   ├── workers/          # Standalone BullMQ background worker
-│   │   │   └── server.ts         # HTTP Server entry point
-│   │   └── tests/                # Automated infrastructure & API tests
-│   │
-│   └── web/                      # Frontend web application placeholder
-│       ├── .env                  # Web environment variables
-│       └── .env.example          # Web environment template
+│   └── server/                   # Fastify backend application
+│       ├── .env                  # Server environment variables
+│       ├── .env.example          # Server environment template
+│       ├── drizzle.config.ts     # Drizzle Kit configuration
+│       ├── vitest.config.ts      # Vitest test runner configuration
+│       ├── src/
+│       │   ├── app/              # Fastify application factory & plugins
+│       │   │   ├── app.ts        # App factory (buildApp)
+│       │   │   ├── plugins/      # Error handler, Swagger, Logger
+│       │   │   └── routes/       # Route schemas & handlers (/health, /health/ready, /campaigns, /publishing, /webhooks)
+│       │   ├── config/           # Centralized Zod env validation & config
+│       │   ├── db/               # Drizzle client, migrations, schemas
+│       │   ├── infrastructure/   # Redis client, BullMQ queues & workers, Pino logger
+│       │   ├── modules/          # Domain services (Campaigns, Content, Publishing, Tokens, Webhooks)
+│       │   ├── shared/           # Error classes, types, utils
+│       │   └── server.ts         # HTTP Server entry point
+│       └── tests/                # Automated infrastructure, domain & API integration tests
 │
 ├── packages/                     # Shared monorepo packages
 ├── docker-compose.yml            # PostgreSQL (5343) & Redis (6378) services
 ├── pnpm-workspace.yaml           # Monorepo workspace configuration
 ├── package.json                  # Root workspace scripts
-└── tasks.md                      # Phase 0 task checklist & verification log
+└── tasks.md                      # Phase task checklists & verification logs
 ```
 
 ---
@@ -102,8 +97,6 @@ Client ──► Fastify ──► Route Schemas ──► Swagger UI (/docs) & 
 
 ## 5. Environment Setup
 
-Environment configuration is managed **separately** for each application:
-
 ### Server Environment (`apps/server/.env`)
 ```env
 NODE_ENV=development
@@ -115,11 +108,6 @@ REDIS_URL=redis://127.0.0.1:6378
 
 LOG_LEVEL=info
 API_PREFIX=/api/v1
-```
-
-### Web Environment (`apps/web/.env`)
-```env
-VITE_API_URL=http://localhost:3000/api/v1
 ```
 
 ---
@@ -174,6 +162,7 @@ pnpm worker
 | :--- | :--- |
 | `pnpm dev:server` | Starts Fastify development server with auto-reload (`apps/server`) |
 | `pnpm worker` | Starts standalone BullMQ worker process (`apps/server`) |
+| `pnpm seed` | Populates PostgreSQL and Redis with deterministic demo campaign data |
 | `pnpm build` | Compiles TypeScript for all workspace apps/packages |
 | `pnpm test` | Runs Vitest integration test suite |
 | `pnpm typecheck` | Validates TypeScript strict types across workspace |
@@ -185,80 +174,65 @@ pnpm worker
 
 ## 8. Verification & Test Suite
 
-The infrastructure test suite covers liveness, readiness, DB connection, Redis connection, BullMQ queue/worker execution, Swagger docs generation, and error handling.
-
-Run tests:
+Run full automated test suite (61/61 passing):
 ```bash
 pnpm test
 ```
 
-Expected output:
-```text
- ✓ tests/infrastructure.test.ts (3 tests)
- ✓ tests/error-handler.test.ts (2 tests)
- ✓ tests/health.test.ts (3 tests)
- ✓ tests/swagger.test.ts (2 tests)
-
- Test Files  4 passed (4)
-      Tests  10 passed (10)
-```
-
 ---
 
-## 9. Phase 0 Definition of Done Checklist
+## 9. Phase 5 — Evaluator Acceptance Probe Rehearsal Guide
 
-- [x] Fastify server starts cleanly separately from startup script
-- [x] TypeScript strict compilation passes without errors (`pnpm typecheck`)
-- [x] PostgreSQL & Redis run isolated via Docker Compose (Ports 5343 & 6378)
-- [x] Drizzle ORM client connected & migrations execute cleanly (`pnpm db:migrate`)
-- [x] Redis connection management & shutdown handled gracefully
-- [x] BullMQ test queue pushes jobs and standalone worker processes them
-- [x] Structured Pino JSON logging with credential redaction (`authorization`, `password`, `tokens`)
-- [x] Request ID generation & propagation (`X-Request-ID` header correlation)
-- [x] Centralized environment variable validation using Zod
-- [x] Liveness endpoint `GET /api/v1/health` returns `200 OK`
-- [x] Readiness endpoint `GET /api/v1/health/ready` verifies PostgreSQL & Redis health
-- [x] Centralized error handler returning structured JSON (`{ error: { code, message, requestId } }`)
-- [x] Swagger UI served at `/docs` and OpenAPI JSON served at `/docs/json`
-- [x] All 10 automated Vitest integration & infrastructure tests pass
-- [x] pnpm monorepo setup (`apps/server`, `apps/web`, `packages/`) with independent `.env` files
+The system can be evaluated against all six core acceptance probes on a clean environment:
 
----
-
-## 10. Phase 4 — Production Reliability
-
-Phase 4 delivers end-to-end production reliability, durable scheduling, worker crash recovery, HMAC signature-verified delivery webhooks, and status trust enforcement:
-
-### 10.1 Key Architecture Principles
-1. **Durable BullMQ Scheduler**:
-   - `enqueuePublishJob` calculates delay from `scheduledAt` for future campaigns.
-   - Deterministic job IDs (`job_${postId}`) prevent duplicate job scheduling.
-2. **Worker Crash Recovery**:
-   - BullMQ worker consumes jobs, reads current DB state (source of truth), and invokes `PublishingService.publishPost()`.
-   - Deterministic idempotency key (`post_<campaignId>_<platform>`) prevents duplicate external publication if worker restarts or crashes.
-3. **Signed Delivery Webhook**:
-   - `POST /api/v1/webhooks/social-delivery` receives signed delivery events from the fake social platform.
-   - HMAC SHA-256 signature verification (`x-social-signature`) executed using constant-time comparison (`timingSafeEqual`).
-   - Forged, missing, or tampered signatures are rejected with `HTTP 400 Bad Request` without mutating database status.
-4. **Status Trust Enforcement**:
-   - Publishing API acceptance sets post status to `publishing` and records `externalPostId`.
-   - Final status `published` is set **ONLY** when a signature-verified delivery webhook is processed.
-
----
-
-## 11. Test Verification Matrix
-
-Run full test suite:
+### Step 1: Clean Start & Infrastructure
 ```bash
-pnpm --filter server test
+docker compose up -d
+pnpm db:migrate
+pnpm seed
 ```
 
-Test suite output (58/58 passing):
-- `queue-worker.test.ts`: Delayed jobs, worker recovery, restart durability.
-- `webhooks-api.test.ts`: HMAC signatures, missing headers, forged secret rejection, tampered payload rejection, idempotency.
-- `status-trust.test.ts`: Status trust rule enforcement (`publishing` → `published`).
-- `webhook-signature.test.ts`: Unit tests for HMAC SHA-256 calculation & constant-time comparison.
-- `token-encryption.test.ts`: AES-256-GCM token encryption.
-- `publishers.test.ts` & `idempotent-publishing.test.ts`: Adapter registry and 429 Retry-After rate-limit backoff.
-- `campaigns.test.ts`, `image-pipeline.test.ts`, `caption-composer.test.ts`, `domain.test.ts`, `health.test.ts`, `infrastructure.test.ts`, `error-handler.test.ts`, `swagger.test.ts`.
+### Step 2: Start API Server & Worker
+```bash
+pnpm dev:server
+# In a separate terminal:
+pnpm worker
+```
+
+### Step 3: Interactive Swagger API Documentation
+Open `http://localhost:3000/docs` to view and execute OpenAPI endpoints.
+
+---
+
+### Acceptance Probe Scenarios
+
+#### Probe 1 — Duplicate Publish (The Idempotency Hammer)
+- **Scenario**: Send repeated publish requests for the same post (`POST /api/v1/social-posts/:id/publish`).
+- **Result**: All retries reuse the deterministic `idempotencyKey` (`post_<campaignId>_<platform>`). The platform server returns the existing `externalPostId`, guaranteeing **exactly 1 external post**.
+- **Automated Test**: `tests/idempotent-publishing.test.ts` & `tests/publishing-api.test.ts`
+
+#### Probe 2 — 429 Rate Limit Handling
+- **Scenario**: Fake platform simulates `429 Too Many Requests` with `Retry-After: 2`.
+- **Result**: `PublishingService` executes exponential backoff respecting the 2-second delay and succeeds on retry using the identical idempotency key.
+- **Automated Test**: `tests/idempotent-publishing.test.ts`
+
+#### Probe 3 — Worker Crash & Restart Recovery
+- **Scenario**: Enqueue job, kill worker process mid-execution, start fresh worker instance.
+- **Result**: The job is safely recovered from Redis by BullMQ. The worker checks PostgreSQL source of truth, uses the deterministic idempotency key, and completes publishing with **0 duplicate posts**.
+- **Automated Test**: `tests/queue-worker.test.ts`
+
+#### Probe 4 — Signed Webhook Trust & Forged Webhook Rejection
+- **Scenario 4A (Forged)**: Post payload to `POST /api/v1/webhooks/social-delivery` with invalid `x-social-signature`. Returns `HTTP 400 Bad Request`. Database status remains `publishing`.
+- **Scenario 4B (Valid)**: Post payload with valid HMAC-SHA256 signature (`crypto.timingSafeEqual`). Returns `HTTP 200 OK`. Post status flips from `publishing` → `published` and sets `publishedAt`.
+- **Automated Test**: `tests/webhooks-api.test.ts` & `tests/status-trust.test.ts`
+
+#### Probe 5 — Content Artifact Specifications
+- **Instagram**: Sharp pipeline resizes image to exact `1080 × 1080` (1:1 ratio) with caption ≤2200 chars and hashtags.
+- **X**: Sharp pipeline resizes image to exact `1600 × 900` (16:9 ratio) with caption ≤280 chars with link.
+- **Automated Test**: `tests/image-pipeline.test.ts` & `tests/caption-composer.test.ts`
+
+#### Probe 6 — Token Security
+- **Database**: `platform_tokens` table stores encrypted token string packed as `authTag:ciphertext` (AES-256-GCM). No plaintext OAuth token is stored.
+- **Logs**: Pino logger redacts `authorization`, `password`, `tokens`. Plaintext secrets never appear in logs or API responses.
+- **Automated Test**: `tests/token-encryption.test.ts`
 

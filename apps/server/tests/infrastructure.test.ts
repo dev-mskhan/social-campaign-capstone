@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { checkDatabaseConnection, closeDatabaseConnection } from '../src/db/client';
 import { checkRedisConnection, closeRedisConnection } from '../src/infrastructure/redis/client';
-import { addTestJob, createTestWorker } from '../src/infrastructure/queue/test-queue';
+import { testQueue, addTestJob, createTestWorker } from '../src/infrastructure/queue/test-queue';
 
 describe('Database, Redis, & BullMQ Infrastructure Tests', () => {
   afterAll(async () => {
@@ -20,23 +20,24 @@ describe('Database, Redis, & BullMQ Infrastructure Tests', () => {
   });
 
   it('should push a test job to BullMQ queue and process it via worker', async () => {
+    await testQueue.drain();
+    const testMessage = `Phase 0 automated integration test job ${Date.now()}`;
     const worker = createTestWorker();
 
-    let processedJobId: string | undefined;
-
-    const jobProcessedPromise = new Promise<void>((resolve) => {
-      worker.on('completed', (job) => {
-        processedJobId = job.id;
-        resolve();
+    const jobCompletedPromise = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Test worker execution timed out')), 10000);
+      worker.on('completed', (j) => {
+        if (j.data?.message === testMessage) {
+          clearTimeout(timer);
+          resolve();
+        }
       });
     });
 
-    const job = await addTestJob('Phase 0 automated integration test job');
+    const job = await addTestJob(testMessage);
     expect(job.id).toBeDefined();
 
-    await jobProcessedPromise;
-    expect(processedJobId).toBe(job.id);
-
+    await jobCompletedPromise;
     await worker.close();
   });
 });
